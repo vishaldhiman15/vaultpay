@@ -1,8 +1,11 @@
 import { User, Account, Transaction, Card, AmlAlert, AuditLog, EmergencyMode } from '../types';
 import axios from 'axios';
 
+const apiHost = window.location.hostname;
+const baseURL = import.meta.env.VITE_API_URL || `http://${apiHost}:5001/api/v1`;
+
 const client = axios.create({
-  baseURL: 'http://localhost:5001/api/v1',
+  baseURL,
   withCredentials: true,
 });
 
