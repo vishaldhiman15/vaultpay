@@ -2,7 +2,12 @@ import { User, Account, Transaction, Card, AmlAlert, AuditLog, EmergencyMode } f
 import axios from 'axios';
 
 const apiHost = window.location.hostname;
-const baseURL = import.meta.env.VITE_API_URL || `http://${apiHost}:5001/api/v1`;
+// If we are on Vercel (or any host that isn't a local IP/localhost), default to a relative path
+// so that Vercel's built-in /api rewrites catch the traffic and route it to the backend service.
+const isLocal = apiHost === 'localhost' || apiHost === '127.0.0.1' || apiHost.startsWith('192.168.') || apiHost.startsWith('10.');
+const defaultBaseUrl = isLocal ? `http://${apiHost}:5001/api/v1` : '/api/v1';
+
+const baseURL = import.meta.env.VITE_API_URL || defaultBaseUrl;
 
 const client = axios.create({
   baseURL,
