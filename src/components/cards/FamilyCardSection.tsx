@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
-import { Crown, Baby, ShieldAlert, Activity, Send } from 'lucide-react';
+import { Crown, Baby, ShieldAlert, Activity, Send, CheckCircle2, Gamepad2, Globe, CreditCard } from 'lucide-react';
 import { VirtualCardDisplay } from './VirtualCardDisplay';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/services/api';
@@ -57,6 +57,22 @@ export function FamilyCardSection() {
       alert(err?.response?.data?.error || 'Failed to cancel premium');
     }
   });
+
+  const [chores, setChores] = useState([
+    { id: 1, title: 'Clean bedroom', reward: 5, completed: false },
+    { id: 2, title: 'Finish math homework', reward: 10, completed: true },
+    { id: 3, title: 'Walk the dog', reward: 3, completed: false }
+  ]);
+
+  const [controls, setControls] = useState({
+    gaming: false,
+    online: true,
+    atm: false
+  });
+
+  const toggleChore = (id: number) => {
+    setChores(chores.map(c => c.id === id ? { ...c, completed: !c.completed } : c));
+  };
 
   const handlePayPremium = () => {
     purchaseMutation.mutate();
@@ -204,40 +220,139 @@ export function FamilyCardSection() {
             </CardHeader>
             <CardContent className="space-y-4">
               {requests.map((req: any) => (
-                <div key={req.id} className={`flex items-center justify-between p-3 rounded-lg border ${req.type === 'MONEY_REQUEST' ? 'bg-yellow-500/10 border-yellow-500/20' : 'bg-black/20 border-white/5'}`}>
+                <div key={req.id} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${req.type === 'MONEY_REQUEST' ? 'bg-yellow-500/10 border-yellow-500/20 hover:border-yellow-500/40' : 'bg-black/20 border-white/5 hover:border-white/10'}`}>
                   <div>
-                    <p className={`text-sm font-medium flex items-center gap-1 ${req.type === 'MONEY_REQUEST' ? 'text-yellow-500' : 'text-white'}`}>
+                    <p className={`text-sm font-bold flex items-center gap-1 ${req.type === 'MONEY_REQUEST' ? 'text-yellow-500' : 'text-white'}`}>
                       {req.type === 'MONEY_REQUEST' ? 'Money Request' : 'Allowance Sent'}
                       {req.status === 'PENDING' && <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse ml-1" />}
                     </p>
-                    <p className={`text-xs ${req.type === 'MONEY_REQUEST' ? 'text-yellow-500/70' : 'text-gray-500'}`}>
+                    <p className={`text-xs mt-1 ${req.type === 'MONEY_REQUEST' ? 'text-yellow-500/70' : 'text-gray-500'}`}>
                       {req.status} • ${req.amount}
                     </p>
                   </div>
                   {req.status === 'PENDING' && req.type === 'MONEY_REQUEST' ? (
                     <div className="flex gap-2">
-                      <Button size="sm" variant="outline" className="h-7 text-xs border-white/10 hover:bg-white/10"
+                      <Button size="sm" variant="outline" className="h-8 text-xs border-white/10 hover:bg-white/10 rounded-lg"
                         onClick={() => handleRequestMutation.mutate({ id: req.id, action: 'DENY' })}
                         disabled={handleRequestMutation.isPending}
                       >Deny</Button>
-                      <Button size="sm" className="h-7 text-xs bg-yellow-500 text-black hover:bg-yellow-600"
+                      <Button size="sm" className="h-8 text-xs bg-yellow-500 text-black hover:bg-yellow-600 rounded-lg font-bold"
                         onClick={() => handleRequestMutation.mutate({ id: req.id, action: 'APPROVE' })}
                         disabled={handleRequestMutation.isPending}
                       >Send ${req.amount}</Button>
                     </div>
                   ) : (
-                    <span className={req.type === 'MONEY_REQUEST' && req.status === 'APPROVED' ? 'text-red-400 text-sm font-medium' : 'text-green-400 text-sm font-medium'}>
+                    <span className={`text-sm font-bold ${req.type === 'MONEY_REQUEST' && req.status === 'APPROVED' ? 'text-red-400' : 'text-green-400'}`}>
                       {req.type === 'MONEY_REQUEST' && req.status === 'APPROVED' ? `-$${req.amount}` : req.type === 'ALLOWANCE_SENT' ? `-$${req.amount}` : ''}
                     </span>
                   )}
                 </div>
               ))}
               {requests.length === 0 && (
-                <p className="text-gray-500 text-sm text-center">No recent activity</p>
+                <p className="text-gray-500 text-sm text-center py-4">No recent activity</p>
               )}
             </CardContent>
           </Card>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card className="shadow-sm border-primary/20 relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-medium flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={18} className="text-primary" />
+                Chores & Quests
+              </div>
+              <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded-full font-bold uppercase tracking-wider">Premium</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-400 mb-4">Set tasks for Timmy. He earns money automatically when you approve them.</p>
+            <div className="space-y-3">
+              {chores.map(chore => (
+                <div key={chore.id} className="flex items-center justify-between p-3 bg-black/40 border border-white/5 rounded-xl hover:border-primary/30 transition-colors cursor-pointer" onClick={() => toggleChore(chore.id)}>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${chore.completed ? 'bg-primary border-primary text-black' : 'border-gray-500'}`}>
+                      {chore.completed && <CheckCircle2 size={12} strokeWidth={4} />}
+                    </div>
+                    <span className={`text-sm font-medium ${chore.completed ? 'text-gray-500 line-through' : 'text-white'}`}>{chore.title}</span>
+                  </div>
+                  <span className="text-primary font-bold">+${chore.reward}</span>
+                </div>
+              ))}
+            </div>
+            <Button variant="outline" className="w-full mt-4 border-dashed border-white/20 hover:border-primary/50 text-gray-400 hover:text-white">
+              + Add New Quest
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-medium flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ShieldAlert size={18} className="text-red-400" />
+                Smart Merchant Controls
+              </div>
+              <span className="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded-full font-bold uppercase tracking-wider">Active</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-400 mb-6">Instantly block or allow specific spending categories on Timmy's card.</p>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400"><Gamepad2 size={18} /></div>
+                  <div>
+                    <p className="text-sm font-bold text-white">Gaming & In-App</p>
+                    <p className="text-xs text-gray-500">Roblox, App Store, PlayStation</p>
+                  </div>
+                </div>
+                <div 
+                  className={`w-12 h-6 rounded-full cursor-pointer transition-colors relative ${controls.gaming ? 'bg-green-500' : 'bg-zinc-700'}`}
+                  onClick={() => setControls(c => ({...c, gaming: !c.gaming}))}
+                >
+                  <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${controls.gaming ? 'translate-x-6' : ''}`} />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400"><Globe size={18} /></div>
+                  <div>
+                    <p className="text-sm font-bold text-white">Online Subscriptions</p>
+                    <p className="text-xs text-gray-500">Netflix, Spotify, Amazon</p>
+                  </div>
+                </div>
+                <div 
+                  className={`w-12 h-6 rounded-full cursor-pointer transition-colors relative ${controls.online ? 'bg-green-500' : 'bg-zinc-700'}`}
+                  onClick={() => setControls(c => ({...c, online: !c.online}))}
+                >
+                  <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${controls.online ? 'translate-x-6' : ''}`} />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-zinc-500/20 flex items-center justify-center text-zinc-400"><CreditCard size={18} /></div>
+                  <div>
+                    <p className="text-sm font-bold text-white">ATM Withdrawals</p>
+                    <p className="text-xs text-gray-500">Cash access globally</p>
+                  </div>
+                </div>
+                <div 
+                  className={`w-12 h-6 rounded-full cursor-pointer transition-colors relative ${controls.atm ? 'bg-green-500' : 'bg-zinc-700'}`}
+                  onClick={() => setControls(c => ({...c, atm: !c.atm}))}
+                >
+                  <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${controls.atm ? 'translate-x-6' : ''}`} />
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
