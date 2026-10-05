@@ -4,7 +4,7 @@ import { Button } from '../ui/Button';
 import { Crown, Baby, ShieldAlert, Activity, Send } from 'lucide-react';
 import { VirtualCardDisplay } from './VirtualCardDisplay';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '@/lib/api';
+import { api } from '@/services/api';
 
 export function FamilyCardSection() {
   const queryClient = useQueryClient();
@@ -15,24 +15,24 @@ export function FamilyCardSection() {
   const { data: familyStatus, isLoading } = useQuery({
     queryKey: ['familyStatus'],
     queryFn: async () => {
-      const res = await api.get('/family/status');
+      const res = await api.client.get('/family/status');
       return res.data;
     }
   });
 
   const createChildCardMutation = useMutation({
-    mutationFn: () => api.post('/family/child-card'),
+    mutationFn: () => api.client.post('/family/child-card'),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['familyStatus'] })
   });
 
   const sendAllowanceMutation = useMutation({
-    mutationFn: (amount: number) => api.post('/family/allowance', { amount }),
+    mutationFn: (amount: number) => api.client.post('/family/allowance', { amount }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['familyStatus'] })
   });
 
   const handleRequestMutation = useMutation({
     mutationFn: ({ id, action }: { id: string, action: 'APPROVE' | 'DENY' }) => 
-      api.post(`/family/requests/${id}`, { action }),
+      api.client.post(`/family/requests/${id}`, { action }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['familyStatus'] })
   });
 
