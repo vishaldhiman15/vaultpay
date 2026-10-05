@@ -39,6 +39,7 @@ model User {
   cards           Card[]
   savingsVaults   SavingsVault[]
   familyRequests  FamilyRequest[]
+  subscriptions   Subscription[]
 
   @@map("users")
 }
@@ -278,4 +279,23 @@ model FamilyRequest {
 
   @@index([parentId])
   @@map("family_requests")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 11. SUBSCRIPTIONS — Premium Memberships
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Subscription {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId @map("user_id")
+  planName  String   @map("plan_name") // "VaultPay Family Premium"
+  price     Float
+  status    String   @default("ACTIVE") // ACTIVE | CANCELLED | EXPIRED
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("subscriptions")
 }

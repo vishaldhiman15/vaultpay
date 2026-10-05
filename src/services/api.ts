@@ -313,5 +313,15 @@ export const api = {
   deactivateEmergencyMode: async (pin: string): Promise<EmergencyMode> => {
     const res = await client.post('/emergency/deactivate', { pin });
     return res.data.status;
+  },
+
+  // Family Premium
+  purchaseFamilyPremium: async () => {
+    const res = await client.post('/family/premium/purchase');
+    return res.data;
+  },
+  cancelFamilyPremium: async () => {
+    const res = await client.post('/family/premium/cancel');
+    return res.data;
   }
 };

@@ -8,7 +8,6 @@ import { api } from '@/services/api';
 
 export function FamilyCardSection() {
   const queryClient = useQueryClient();
-  const [isPremium, setIsPremium] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
   const [allowanceAmount, setAllowanceAmount] = useState('50');
 
@@ -36,16 +35,36 @@ export function FamilyCardSection() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['familyStatus'] })
   });
 
+  const purchaseMutation = useMutation({
+    mutationFn: () => api.purchaseFamilyPremium(),
+    onMutate: () => setIsPaying(true),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['familyStatus'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] }); // Update balance
+    },
+    onSettled: () => setIsPaying(false),
+    onError: (err: any) => {
+      alert(err?.response?.data?.error || 'Failed to purchase premium');
+    }
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: () => api.cancelFamilyPremium(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['familyStatus'] });
+    },
+    onError: (err: any) => {
+      alert(err?.response?.data?.error || 'Failed to cancel premium');
+    }
+  });
+
   const handlePayPremium = () => {
-    setIsPaying(true);
-    setTimeout(() => {
-      setIsPremium(true);
-      setIsPaying(false);
-    }, 2000);
+    purchaseMutation.mutate();
   };
 
   const childCard = familyStatus?.childCard;
   const requests = familyStatus?.requests || [];
+  const isPremium = familyStatus?.isPremium || false;
 
   if (!isPremium) {
     return (
@@ -110,10 +129,25 @@ export function FamilyCardSection() {
 
   return (
     <div className="space-y-6">
-      <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-        <Baby className="text-primary" />
-        Family Controls
-      </h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+          <Baby className="text-primary" />
+          Family Controls
+        </h3>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="text-red-400 border-red-500/20 hover:bg-red-500/10 text-xs"
+          onClick={() => {
+            if (confirm('Are you sure you want to cancel your VaultPay Family Premium subscription? You will lose access immediately.')) {
+              cancelMutation.mutate();
+            }
+          }}
+          disabled={cancelMutation.isPending}
+        >
+          {cancelMutation.isPending ? 'Canceling...' : 'Cancel Subscription'}
+        </Button>
+      </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="shadow-sm">
