@@ -18,7 +18,8 @@ export const register = async (req: Request, res: Response) => {
       }
     });
 
-    const vpaStr = `${(firstName || 'user').trim().toLowerCase()}@vaultpay`;
+    const randomSuffix = Math.floor(100 + Math.random() * 900);
+    const vpaStr = `${(firstName || 'user').trim().toLowerCase().replace(/\s+/g, '')}${randomSuffix}@vaultpay`;
     
     // Create default account and VPA for the new user
     await prisma.account.create({
@@ -43,8 +44,12 @@ export const register = async (req: Request, res: Response) => {
     await AuditLog.create({ action: 'USER_REGISTERED', userId: user.id, details: { email } }).catch(() => {});
     
     res.status(201).json({ user: { id: user.id, email: user.email, role: user.role } });
-  } catch (error) {
-    res.status(400).json({ error: 'Registration failed' });
+  } catch (error: any) {
+    console.error("Registration error:", error);
+    if (error.code === 'P2002') {
+      return res.status(400).json({ error: 'Email or phone number is already registered' });
+    }
+    res.status(400).json({ error: error.message || 'Registration failed' });
   }
 };
 
