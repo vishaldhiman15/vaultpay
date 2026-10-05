@@ -45,8 +45,8 @@ export function DynamicQrDisplay({ vpa, amount: initialAmount, payeeName = 'Vaul
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
   
-  // Create standard UPI string
-  const upiString = `upi://pay?pa=${encodeURIComponent(vpa)}&pn=${encodeURIComponent(payeeName)}&am=${currentAmount}&cu=INR`;
+  // Create a web intent URL so native phone cameras open the VaultPay web app directly
+  const webIntentUrl = `${window.location.origin}/payments?tab=send&pa=${encodeURIComponent(vpa)}&pn=${encodeURIComponent(payeeName)}&am=${currentAmount}`;
 
   return (
     <Card className="flex flex-col items-center justify-center p-8 bg-gradient-to-b from-card to-background border-primary/20">
@@ -80,7 +80,7 @@ export function DynamicQrDisplay({ vpa, amount: initialAmount, payeeName = 'Vaul
           </div>
         )}
         <QRCodeSVG 
-          value={upiString} 
+          value={webIntentUrl} 
           size={220}
           level="H"
           includeMargin={false}
