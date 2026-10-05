@@ -1,0 +1,261 @@
+// ═══════════════════════════════════════════════════════════════════════════════
+// VaultPay — Core Banking Database Schema
+// Provider: SQLite (Prisma ORM) — swappable to PostgreSQL for production
+// ═══════════════════════════════════════════════════════════════════════════════
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 1. USERS — Identity, KYC, Credentials
+// ─────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  email           String    @unique
+  phone           String    @unique
+  passwordHash    String    @map("password_hash")
+  firstName       String    @map("first_name")
+  lastName        String    @map("last_name")
+  dateOfBirth     DateTime? @map("date_of_birth")
+  role            String    @default("CUSTOMER") // CUSTOMER | TELLER | ADMIN
+  kycStatus       String    @default("PENDING") @map("kyc_status") // PENDING | SUBMITTED | VERIFIED | REJECTED
+  kycDocumentType String?   @map("kyc_document_type") // AADHAAR | PAN | PASSPORT
+  kycDocumentId   String?   @map("kyc_document_id")
+  kycVerifiedAt   DateTime? @map("kyc_verified_at")
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  accounts        Account[]
+  vpas            UserVpa[]
+  recoveryProfile RecoveryProfile?
+  cards           Card[]
+  savingsVaults   SavingsVault[]
+
+  @@map("users")
+}
+
+model UserVpa {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId @map("user_id")
+  vpa    String @unique // e.g., "rahul@vaultpay"
+  upiPinHash String? @map("upi_pin_hash") // 4-6 digit UPI PIN hash
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_vpas")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2. ACCOUNTS — Multi-type accounts with balance tracking
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Account {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId @map("user_id")
+  accountNumber  String   @unique @map("account_number") // 16-digit
+  accountType    String   @map("account_type") // CHECKING | SAVINGS | EMERGENCY_RESERVE
+  currency       String   @default("INR")
+  currentBalance Float  @default(0) @map("current_balance")
+  availBalance   Float  @default(0) @map("avail_balance")
+  status         String   @default("ACTIVE") // ACTIVE | FROZEN | CLOSED | DORMANT
+  version        Int      @default(0) // Optimistic concurrency control
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  user         User          @relation(fields: [userId], references: [id])
+  postings     Posting[]
+  sentTxns     Transaction[] @relation("SenderAccount")
+  receivedTxns Transaction[] @relation("ReceiverAccount")
+  cards        Card[]
+
+  @@index([userId])
+  @@map("accounts")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 3. TRANSACTIONS — All payment transactions with status lifecycle
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Transaction {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  referenceId   String    @unique @map("reference_id") // VPY-TXN-XXXXXX
+  senderAccId String? @db.ObjectId @map("sender_account_id")
+  receiverAccId String? @db.ObjectId @map("receiver_account_id")
+  amount        Float
+  currency      String    @default("INR")
+  type          String // P2P | P2M | NEFT | IMPS | INTERNAL | UPI_COLLECT | UPI_INTENT | UPI_QR
+  channel       String // UPI | NEFT | IMPS | INTERNAL | CARD | EMERGENCY
+  status        String    @default("INITIATED") // INITIATED | PENDING | PROCESSING | SUCCESS | FAILED | REVERSED
+  description   String?
+  upiTxnId      String?   @map("upi_txn_id") // NPCI transaction ID
+  bankRrn       String?   @map("bank_rrn") // Bank Reference Number
+  failureReason String?   @map("failure_reason")
+  metadata      String?   // JSON string for flexible extra data
+  initiatedAt   DateTime  @default(now()) @map("initiated_at")
+  completedAt   DateTime? @map("completed_at")
+
+  senderAccount   Account?      @relation("SenderAccount", fields: [senderAccId], references: [id])
+  receiverAccount Account?      @relation("ReceiverAccount", fields: [receiverAccId], references: [id])
+  journalEntry    JournalEntry?
+
+  @@index([senderAccId, initiatedAt])
+  @@index([receiverAccId, initiatedAt])
+  @@index([status])
+  @@index([upiTxnId])
+  @@map("transactions")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. LEDGER — Strict double-entry accounting (journal entries + postings)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model JournalEntry {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  transactionId String @unique @db.ObjectId @map("transaction_id")
+  referenceType String   @map("reference_type") // UPI_PAYMENT | NEFT | IMPS | INTERNAL | FEE
+  description   String
+  status        String   @default("POSTED") // POSTED | VOIDED
+  postedAt      DateTime @default(now()) @map("posted_at")
+
+  transaction Transaction @relation(fields: [transactionId], references: [id])
+  postings    Posting[]
+
+  @@index([referenceType, postedAt])
+  @@map("journal_entries")
+}
+
+model Posting {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  journalEntryId String @db.ObjectId @map("journal_entry_id")
+  accountId String @db.ObjectId @map("account_id")
+  amount         Float // Always positive; direction determines debit/credit
+  direction      String // DEBIT | CREDIT
+  sequenceNum    Int      @map("sequence_num")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  journalEntry JournalEntry @relation(fields: [journalEntryId], references: [id])
+  account      Account      @relation(fields: [accountId], references: [id])
+
+  @@unique([journalEntryId, sequenceNum])
+  @@index([accountId, createdAt])
+  @@map("postings")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 5. UPI MANDATES — Recurring UPI Autopay configurations
+// ─────────────────────────────────────────────────────────────────────────────
+
+model UpiMandate {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  payerVpa       String    @map("payer_vpa")
+  payeeVpa       String    @map("payee_vpa")
+  amount         Float
+  frequency      String // DAILY | WEEKLY | BIWEEKLY | MONTHLY | QUARTERLY | YEARLY | ONETIME
+  purpose        String
+  startDate      DateTime  @map("start_date")
+  endDate        DateTime  @map("end_date")
+  status         String    @default("CREATED") // CREATED | APPROVED | ACTIVE | PAUSED | REVOKED | EXPIRED
+  mandateUrn     String?   @unique @map("mandate_urn")
+  lastExecutedAt DateTime? @map("last_executed_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  @@index([payerVpa])
+  @@index([status])
+  @@map("upi_mandates")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 6. VIRTUAL CARDS — Issuing, controls, and spending limits
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Card {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId @map("user_id")
+  accountId String @db.ObjectId @map("account_id")
+  cardNumber      String   @unique @map("card_number") // Masked display
+  cardNumberHash  String   @map("card_number_hash") // SHA-256 of full number
+  last4           String   @map("last_4")
+  expiryMonth     Int      @map("expiry_month")
+  expiryYear      Int      @map("expiry_year")
+  cvvHash         String   @map("cvv_hash") // bcrypt hash
+  cardType        String   @default("VIRTUAL_DEBIT") @map("card_type") // VIRTUAL_DEBIT | VIRTUAL_PREPAID
+  dailyLimit      Float  @default(50000) @map("daily_limit")
+  isFrozen        Boolean  @default(false) @map("is_frozen")
+  isOnlineEnabled Boolean  @default(true) @map("is_online_enabled")
+  isContactless   Boolean  @default(true) @map("is_contactless")
+  status          String   @default("ACTIVE") // ACTIVE | BLOCKED | EXPIRED | CANCELLED
+  expiresAt       DateTime? @map("expires_at")
+  merchantLocked  String?   @map("merchant_locked")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  user    User    @relation(fields: [userId], references: [id])
+  account Account @relation(fields: [accountId], references: [id])
+
+  @@index([userId])
+  @@map("cards")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 7. RECOVERY PROFILES — Emergency cross-device authentication
+// ─────────────────────────────────────────────────────────────────────────────
+
+model RecoveryProfile {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String    @unique @map("user_id")
+  aliasUrl       String    @unique @map("alias_url") // User-chosen slug, e.g. "john-vault-2024"
+  hashedPin      String    @map("hashed_pin") // bcrypt hash of secondary PIN
+  emergencyAccId String? @db.ObjectId @map("emergency_account_id") // Linked emergency wallet
+  isActive       Boolean   @default(true) @map("is_active")
+  lastAccessedAt DateTime? @map("last_accessed_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("recovery_profiles")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 8. SAVINGS VAULTS — User goal-based savings
+// ─────────────────────────────────────────────────────────────────────────────
+
+model SavingsVault {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String   @db.ObjectId @map("user_id")
+  name          String
+  targetAmount  Float    @map("target_amount")
+  savedAmount   Float    @default(0) @map("saved_amount")
+  currency      String   @default("INR")
+  targetDate    DateTime? @map("target_date")
+  status        String   @default("ACTIVE") // ACTIVE | ACHIEVED | CLOSED
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user          User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("savings_vaults")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 9. QR INTENTS — Dynamic QR code data stored in Mongo
+// ─────────────────────────────────────────────────────────────────────────────
+
+model QrIntent {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  payeeVpa      String   @map("payee_vpa")
+  payeeName     String   @map("payee_name")
+  amount        Float
+  note          String?
+  status        String   @default("ACTIVE") // ACTIVE | PAID | EXPIRED
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("qr_intents")
+}

@@ -1,0 +1,149 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --color-background: #09090B; /* Classic clean black */
+  --color-foreground: #FAFAFA;
+  --color-card: #18181B; /* Solid dark gray */
+  --color-card-foreground: #FAFAFA;
+  --color-popover: #18181B;
+  --color-popover-foreground: #FAFAFA;
+  
+  /* Classic Corporate Accents */
+  --color-primary: #2563EB; /* Classic Banking Blue */
+  --color-primary-foreground: #FFFFFF;
+  --color-secondary: #27272A;
+  --color-secondary-foreground: #FAFAFA;
+  --color-muted: #27272A;
+  --color-muted-foreground: #A1A1AA;
+  --color-accent: #3B82F6; 
+  --color-accent-foreground: #FFFFFF;
+  
+  /* Status Colors */
+  --color-destructive: #EF4444;
+  --color-destructive-foreground: #FFFFFF;
+  --color-success: #10B981;
+  --color-success-foreground: #FFFFFF;
+  --color-warning: #F59E0B;
+  --color-warning-foreground: #FFFFFF;
+  
+  --color-border: #27272A;
+  --color-input: #27272A;
+  --color-ring: #2563EB;
+  
+  --color-sidebar: #09090B;
+  --color-sidebar-foreground: #A1A1AA;
+  --color-sidebar-active: #FAFAFA;
+
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Background Grid Effect (Removed for classic look) ─────────────────────────────────────────────── */
+.bg-grid {
+  display: none;
+}
+
+/* ─── Scrollbar ───────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ─── Animations ─────────────────────────────────────────────────────────── */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fade-in 0.4s ease-out forwards;
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-scale-in {
+  animation: scale-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Stagger delays */
+.stagger-1 { animation-delay: 50ms; }
+.stagger-2 { animation-delay: 100ms; }
+.stagger-3 { animation-delay: 150ms; }
+.stagger-4 { animation-delay: 200ms; }
+.stagger-5 { animation-delay: 250ms; }
+.stagger-6 { animation-delay: 300ms; }
+
+/* ─── Glassmorphism Classes (Flattened for classic look) ──────────────────────────────────────────────── */
+.glass-card {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.glass-strong {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  border-color: var(--color-border);
+}
+
+.gradient-text {
+  background: none;
+  color: var(--color-foreground);
+  -webkit-text-fill-color: initial;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+}
+
