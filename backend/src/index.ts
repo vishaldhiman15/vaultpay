@@ -17,6 +17,7 @@ import complianceRoutes from './routes/compliance.routes.js';
 import emergencyRoutes from './routes/emergency.routes.js';
 import webhookRoutes from './routes/webhooks.routes.js';
 import vaultsRoutes from './routes/vaults.routes.js';
+import familyRoutes from './routes/family.routes.js';
 
 const app = express();
 
@@ -49,6 +50,7 @@ app.use('/api/v1/cards', cardsRoutes);
 app.use('/api/v1/compliance', complianceRoutes);
 app.use('/api/v1/emergency', emergencyRoutes);
 app.use('/api/v1/vaults', vaultsRoutes);
+app.use('/api/v1/family', familyRoutes);
 
 const PORT = process.env.PORT || 5000;
 

@@ -1,28 +1,40 @@
 import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
-import { Crown, Baby, ShieldAlert, Activity, Send, CheckCircle2 } from 'lucide-react';
+import { Crown, Baby, ShieldAlert, Activity, Send } from 'lucide-react';
 import { VirtualCardDisplay } from './VirtualCardDisplay';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import api from '@/lib/api';
 
 export function FamilyCardSection() {
+  const queryClient = useQueryClient();
   const [isPremium, setIsPremium] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
-  const [childCardCreated, setChildCardCreated] = useState(false);
-  
-  const mockChildCard = {
-    id: 'child-123',
-    userId: 'mock',
-    accountId: 'mock',
-    cardNumber: '4242424242421234', // Continuous string for the formatter
-    nameOnCard: 'TIMMY',
-    expiry: '12/28',
-    cvv: '999',
-    type: 'VIRTUAL',
-    isFrozen: false,
-    dailyLimit: 50,
-    monthlyLimit: 500,
-    createdAt: new Date().toISOString()
-  };
+  const [allowanceAmount, setAllowanceAmount] = useState('50');
+
+  const { data: familyStatus, isLoading } = useQuery({
+    queryKey: ['familyStatus'],
+    queryFn: async () => {
+      const res = await api.get('/family/status');
+      return res.data;
+    }
+  });
+
+  const createChildCardMutation = useMutation({
+    mutationFn: () => api.post('/family/child-card'),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['familyStatus'] })
+  });
+
+  const sendAllowanceMutation = useMutation({
+    mutationFn: (amount: number) => api.post('/family/allowance', { amount }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['familyStatus'] })
+  });
+
+  const handleRequestMutation = useMutation({
+    mutationFn: ({ id, action }: { id: string, action: 'APPROVE' | 'DENY' }) => 
+      api.post(`/family/requests/${id}`, { action }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['familyStatus'] })
+  });
 
   const handlePayPremium = () => {
     setIsPaying(true);
@@ -32,9 +44,8 @@ export function FamilyCardSection() {
     }, 2000);
   };
 
-  const handleCreateChild = () => {
-    setChildCardCreated(true);
-  };
+  const childCard = familyStatus?.childCard;
+  const requests = familyStatus?.requests || [];
 
   if (!isPremium) {
     return (
@@ -64,7 +75,7 @@ export function FamilyCardSection() {
     );
   }
 
-  if (!childCardCreated) {
+  if (!childCard && !isLoading) {
     return (
       <Card className="border border-primary/20 bg-card">
         <CardHeader>
@@ -82,14 +93,20 @@ export function FamilyCardSection() {
             <p className="text-gray-400 mb-6 max-w-md mx-auto">
               Give your child their own independent card and account space. You can review all their requests and control limits from here.
             </p>
-            <Button onClick={handleCreateChild} className="bg-primary hover:bg-primary/90">
-              Issue Child Card & Account
+            <Button 
+              onClick={() => createChildCardMutation.mutate()} 
+              className="bg-primary hover:bg-primary/90"
+              disabled={createChildCardMutation.isPending}
+            >
+              {createChildCardMutation.isPending ? 'Issuing Card...' : 'Issue Child Card & Account'}
             </Button>
           </div>
         </CardContent>
       </Card>
     );
   }
+
+  if (isLoading) return <div>Loading family space...</div>;
 
   return (
     <div className="space-y-6">
@@ -104,7 +121,7 @@ export function FamilyCardSection() {
             <CardTitle className="text-base font-medium">Child's Card (Timmy)</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col items-center">
-            <VirtualCardDisplay card={mockChildCard as any} />
+            <VirtualCardDisplay card={{...childCard, nameOnCard: 'TIMMY'} as any} />
             <div className="mt-6 flex gap-3 w-full">
               <Button variant="outline" className="flex-1 text-red-400 border-red-500/20 hover:bg-red-500/10">Freeze Card</Button>
               <Button variant="outline" className="flex-1">Adjust Limits</Button>
@@ -122,12 +139,25 @@ export function FamilyCardSection() {
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between text-sm text-gray-400 mb-4">
-                <span>Daily Limit: $50.00</span>
+                <span>Daily Limit: ${childCard?.dailyLimit || 50}.00</span>
                 <span>Remaining: $32.00</span>
               </div>
-              <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground flex items-center gap-2">
-                <Send size={16} /> Send Allowance
-              </Button>
+              <div className="flex gap-2">
+                <input 
+                  type="number" 
+                  value={allowanceAmount} 
+                  onChange={(e) => setAllowanceAmount(e.target.value)}
+                  className="bg-black/50 border border-zinc-800 rounded px-3 py-2 w-24 text-white"
+                  placeholder="Amount"
+                />
+                <Button 
+                  className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground flex items-center justify-center gap-2"
+                  onClick={() => sendAllowanceMutation.mutate(Number(allowanceAmount))}
+                  disabled={sendAllowanceMutation.isPending}
+                >
+                  <Send size={16} /> {sendAllowanceMutation.isPending ? 'Sending...' : 'Send Allowance'}
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
@@ -139,23 +169,38 @@ export function FamilyCardSection() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-3 bg-black/20 rounded-lg border border-white/5">
-                <div>
-                  <p className="text-sm text-white font-medium">Roblox Premium</p>
-                  <p className="text-xs text-gray-500">Today, 2:45 PM</p>
+              {requests.map((req: any) => (
+                <div key={req.id} className={`flex items-center justify-between p-3 rounded-lg border ${req.type === 'MONEY_REQUEST' ? 'bg-yellow-500/10 border-yellow-500/20' : 'bg-black/20 border-white/5'}`}>
+                  <div>
+                    <p className={`text-sm font-medium flex items-center gap-1 ${req.type === 'MONEY_REQUEST' ? 'text-yellow-500' : 'text-white'}`}>
+                      {req.type === 'MONEY_REQUEST' ? 'Money Request' : 'Allowance Sent'}
+                      {req.status === 'PENDING' && <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse ml-1" />}
+                    </p>
+                    <p className={`text-xs ${req.type === 'MONEY_REQUEST' ? 'text-yellow-500/70' : 'text-gray-500'}`}>
+                      {req.status} • ${req.amount}
+                    </p>
+                  </div>
+                  {req.status === 'PENDING' && req.type === 'MONEY_REQUEST' ? (
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" className="h-7 text-xs border-white/10 hover:bg-white/10"
+                        onClick={() => handleRequestMutation.mutate({ id: req.id, action: 'DENY' })}
+                        disabled={handleRequestMutation.isPending}
+                      >Deny</Button>
+                      <Button size="sm" className="h-7 text-xs bg-yellow-500 text-black hover:bg-yellow-600"
+                        onClick={() => handleRequestMutation.mutate({ id: req.id, action: 'APPROVE' })}
+                        disabled={handleRequestMutation.isPending}
+                      >Send ${req.amount}</Button>
+                    </div>
+                  ) : (
+                    <span className={req.type === 'MONEY_REQUEST' && req.status === 'APPROVED' ? 'text-red-400 text-sm font-medium' : 'text-green-400 text-sm font-medium'}>
+                      {req.type === 'MONEY_REQUEST' && req.status === 'APPROVED' ? `-$${req.amount}` : req.type === 'ALLOWANCE_SENT' ? `-$${req.amount}` : ''}
+                    </span>
+                  )}
                 </div>
-                <span className="text-red-400 text-sm font-medium">-$9.99</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                <div>
-                  <p className="text-sm text-yellow-500 font-medium flex items-center gap-1">Money Request <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse ml-1" /></p>
-                  <p className="text-xs text-yellow-500/70">"Dad I need lunch money"</p>
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="h-7 text-xs border-white/10 hover:bg-white/10">Deny</Button>
-                  <Button size="sm" className="h-7 text-xs bg-yellow-500 text-black hover:bg-yellow-600">Send $15</Button>
-                </div>
-              </div>
+              ))}
+              {requests.length === 0 && (
+                <p className="text-gray-500 text-sm text-center">No recent activity</p>
+              )}
             </CardContent>
           </Card>
         </div>

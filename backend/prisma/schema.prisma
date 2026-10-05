@@ -38,6 +38,7 @@ model User {
   recoveryProfile RecoveryProfile?
   cards           Card[]
   savingsVaults   SavingsVault[]
+  familyRequests  FamilyRequest[]
 
   @@map("users")
 }
@@ -258,4 +259,23 @@ model QrIntent {
   createdAt     DateTime @default(now()) @map("created_at")
 
   @@map("qr_intents")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 10. FAMILY BANKING — Child requests and allowances
+// ─────────────────────────────────────────────────────────────────────────────
+
+model FamilyRequest {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  parentId  String   @db.ObjectId @map("parent_id")
+  childName String   @map("child_name")
+  type      String   // ALLOWANCE_SENT | MONEY_REQUEST
+  amount    Float
+  status    String   @default("PENDING") // PENDING | APPROVED | DENIED | COMPLETED
+  createdAt DateTime @default(now()) @map("created_at")
+
+  parent    User     @relation(fields: [parentId], references: [id])
+
+  @@index([parentId])
+  @@map("family_requests")
 }
