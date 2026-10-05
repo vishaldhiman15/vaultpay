@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate } from '../middleware/auth.middleware.js';
+import { authenticate } from '../middleware/auth.js';
 import { getFamilyStatus, createChildCard, sendAllowance, handleRequest } from '../controllers/family.controller.js';
 
 const router = Router();

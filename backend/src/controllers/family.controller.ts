@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma.js';
-import { generateFakeCardNumber } from '../utils/crypto.js';
+
+const generateFakeCardNumber = () => '4242' + Math.floor(100000000000 + Math.random() * 900000000000).toString();
 
 export const getFamilyStatus = async (req: Request, res: Response) => {
   try {
@@ -90,13 +91,13 @@ export const handleRequest = async (req: Request, res: Response) => {
     const { id } = req.params;
     const { action } = req.body; // 'APPROVE' or 'DENY'
     
-    const request = await prisma.familyRequest.findUnique({ where: { id } });
+    const request = await prisma.familyRequest.findUnique({ where: { id: id as string } });
     if (!request || request.parentId !== req.user!.id) {
       return res.status(404).json({ error: 'Request not found' });
     }
 
     const updated = await prisma.familyRequest.update({
-      where: { id },
+      where: { id: id as string },
       data: { status: action === 'APPROVE' ? 'APPROVED' : 'DENIED' }
     });
 
