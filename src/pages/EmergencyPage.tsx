@@ -7,11 +7,15 @@ import { EmergencyWallet } from '@/components/emergency/EmergencyWallet';
 import { ShieldAlert, AlertTriangle, Lock, Unlock } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Card } from '@/components/ui/Card';
+import { useQueryClient } from '@tanstack/react-query';
+import { formatCurrency } from '@/lib/utils';
 
 export function EmergencyPage() {
   const [status, setStatus] = useState<EmergencyMode | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { data: accounts = [], refetch } = useAccounts();
+  const queryClient = useQueryClient();
 
   // Deactivation state
   const [showDeactivate, setShowDeactivate] = useState(false);
@@ -19,7 +23,12 @@ export function EmergencyPage() {
   const [deactivateError, setDeactivateError] = useState('');
   const [isDeactivating, setIsDeactivating] = useState(false);
 
+  // Funding state
+  const [fundAmount, setFundAmount] = useState('');
+  const [fundStatus, setFundStatus] = useState('');
+
   const emergencyAccount = accounts.find(a => a.type === 'EMERGENCY');
+  const mainAccount = accounts.find(a => a.type === 'CHECKING');
 
   useEffect(() => {
     const fetchStatus = async () => {
@@ -54,6 +63,27 @@ export function EmergencyPage() {
       setDeactivateError(err.response?.data?.error || 'Failed to deactivate. Check your PIN.');
     } finally {
       setIsDeactivating(false);
+    }
+  };
+
+  const handleFundEmergency = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!emergencyAccount) return;
+    setFundStatus('processing');
+    try {
+      await api.simulateInbound({
+        toAccountId: emergencyAccount.id,
+        amount: Number(fundAmount),
+        sourceName: 'Direct Deposit / Personal Transfer'
+      });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      setFundAmount('');
+      setFundStatus('success');
+      setTimeout(() => setFundStatus(''), 2000);
+    } catch (err) {
+      setFundStatus('error');
+      setTimeout(() => setFundStatus(''), 2000);
     }
   };
 
@@ -166,6 +196,38 @@ export function EmergencyPage() {
           </div>
         </div>
       </div>
+
+      {emergencyAccount && (
+        <Card className="p-6 animate-slide-up stagger-2 border border-white/5 bg-gradient-to-r from-card to-white/5">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div>
+              <h3 className="text-xl font-semibold text-white mb-1">Fund Emergency Wallet</h3>
+              <p className="text-sm text-gray-400 max-w-md">
+                Add money to your decoy wallet right now so it looks fully realistic and usable if you ever need to activate the protocol.
+              </p>
+            </div>
+            <div className="w-full md:w-auto bg-black/40 p-4 rounded-xl border border-white/10 min-w-[300px]">
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-sm text-gray-400">Current Decoy Balance</span>
+                <span className="text-lg font-bold text-white">{formatCurrency(emergencyAccount.balance)}</span>
+              </div>
+              <form onSubmit={handleFundEmergency} className="flex gap-2">
+                <Input 
+                  type="number" 
+                  placeholder="Amount" 
+                  value={fundAmount} 
+                  onChange={(e) => setFundAmount(e.target.value)}
+                  className="flex-1 bg-black/50"
+                  required
+                />
+                <Button type="submit" disabled={fundStatus === 'processing'} className="whitespace-nowrap">
+                  {fundStatus === 'processing' ? 'Adding...' : fundStatus === 'success' ? 'Added!' : fundStatus === 'error' ? 'Failed' : 'Add Funds'}
+                </Button>
+              </form>
+            </div>
+          </div>
+        </Card>
+      )}
     </div>
   );
 }
