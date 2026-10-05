@@ -4,9 +4,15 @@ import { AuditLog } from '../models/AuditLog.model.js';
 import bcrypt from 'bcryptjs';
 
 export const issueCard = async (req: Request, res: Response) => {
-  const { accountId } = req.body;
+  let { accountId } = req.body;
   const userId = req.user.id;
   try {
+    if (!accountId) {
+      const accounts = await prisma.account.findMany({ where: { userId } });
+      if (accounts.length === 0) return res.status(400).json({ error: 'No account found' });
+      accountId = accounts[0].id;
+    }
+
     const cardNumber = '4532' + Math.floor(100000000000 + Math.random() * 900000000000).toString();
     const cvv = Math.floor(100 + Math.random() * 900).toString();
     const cvvHash = await bcrypt.hash(cvv, 10);
@@ -52,7 +58,10 @@ export const getCards = async (req: Request, res: Response) => {
       dailyLimit: c.dailyLimit,
       contactlessEnabled: c.isContactless,
       onlineEnabled: c.isOnlineEnabled,
-      network: 'VISA'
+      network: 'VISA',
+      expiresAt: c.expiresAt,
+      merchantLocked: c.merchantLocked,
+      createdAt: c.createdAt
     }));
 
     res.json({ cards: formatted });

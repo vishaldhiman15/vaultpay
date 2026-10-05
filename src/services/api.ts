@@ -242,6 +242,10 @@ export const api = {
     const res = await client.patch(`/cards/${cardId}`, updates);
     return res.data.card;
   },
+  issueVirtualCard: async (accountId?: string): Promise<Card> => {
+    const res = await client.post('/cards/issue', { accountId });
+    return res.data.card;
+  },
   createBurnerCard: async (durationHours: number, merchantLocked?: string, limit?: number): Promise<Card> => {
     const res = await client.post('/cards/burner', { durationHours, merchantLocked, limit });
     return res.data.card;

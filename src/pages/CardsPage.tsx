@@ -12,6 +12,7 @@ import { useQueryClient } from '@tanstack/react-query';
 export function CardsPage() {
   const { data: cards = [], isLoading } = useCards();
   const queryClient = useQueryClient();
+  const [isIssuing, setIsIssuing] = React.useState(false);
 
   const handleCardUpdate = async (cardId: string, updates: any) => {
     await api.updateCard(cardId, updates);
@@ -20,10 +21,16 @@ export function CardsPage() {
 
   const primaryCard = cards.find(c => c.type !== 'BURNER');
 
-  const handleIssueCard = () => {
-    // In a real app, this would call api.issueVirtualCard or open a modal
-    alert("Success! A new Virtual Card has been issued and linked to your account.");
-    // Force refresh or optimistic update here
+  const handleIssueCard = async () => {
+    setIsIssuing(true);
+    try {
+      await api.issueVirtualCard();
+      queryClient.invalidateQueries({ queryKey: ['cards'] });
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsIssuing(false);
+    }
   };
 
   return (
@@ -33,9 +40,15 @@ export function CardsPage() {
           <h1 className="text-3xl font-bold text-white tracking-tight">Cards</h1>
           <p className="text-gray-400 mt-1">Manage your virtual, physical, and burner cards.</p>
         </div>
-        <Button onClick={handleIssueCard}>
-          <Plus className="h-4 w-4 mr-2" />
-          Issue New Card
+        <Button onClick={handleIssueCard} disabled={isIssuing}>
+          {isIssuing ? (
+            'Issuing...'
+          ) : (
+            <>
+              <Plus className="h-4 w-4 mr-2" />
+              Issue New Card
+            </>
+          )}
         </Button>
       </div>
 
