@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { transfer, getTransactions, createQrIntent, scanQrIntent } from '../controllers/transactions.controller.js';
+import { transfer, getTransactions, createQrIntent, scanQrIntent, simulateInbound } from '../controllers/transactions.controller.js';
 import { authenticate } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { z } from 'zod';
@@ -19,6 +19,7 @@ const transferSchema = z.object({
 });
 
 router.post('/transfer', validate(transferSchema), transfer);
+router.post('/simulate-inbound', simulateInbound);
 router.get('/', getTransactions);
 
 router.post('/qr-intent', createQrIntent);

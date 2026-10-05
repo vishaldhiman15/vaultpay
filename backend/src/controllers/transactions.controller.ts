@@ -100,6 +100,36 @@ export const transfer = async (req: Request, res: Response) => {
   }
 };
 
+export const simulateInbound = async (req: Request, res: Response) => {
+  const { toAccountId, amount, sourceName } = req.body;
+  const userId = req.user.id;
+  try {
+    const account = await prisma.account.findFirst({ where: { id: toAccountId, userId } });
+    if (!account) return res.status(404).json({ error: 'Account not found' });
+
+    await prisma.account.update({
+      where: { id: toAccountId },
+      data: { currentBalance: { increment: amount }, availBalance: { increment: amount } }
+    });
+
+    const transaction = await prisma.transaction.create({
+      data: {
+        referenceId: `SIM${Date.now()}`,
+        receiverAccId: toAccountId,
+        amount,
+        type: 'UPI',
+        channel: 'BANK',
+        status: 'COMPLETED',
+        description: sourceName || 'External Transfer',
+        completedAt: new Date()
+      }
+    });
+    return res.json({ transaction });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || 'Failed to simulate transfer' });
+  }
+};
+
 export const getTransactions = async (req: Request, res: Response) => {
   const userId = req.user.id;
   try {

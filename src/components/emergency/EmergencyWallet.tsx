@@ -6,6 +6,8 @@ import { ShieldAlert, AlertTriangle, ArrowRight, Send } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { api } from '@/services/api';
+import { useTransactions } from '@/hooks/useAccounts';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface EmergencyWalletProps {
   account: Account;
@@ -13,11 +15,16 @@ interface EmergencyWalletProps {
 }
 
 export function EmergencyWallet({ account, onDeactivate }: EmergencyWalletProps) {
+  const queryClient = useQueryClient();
+  const { data: transactions = [] } = useTransactions(account.id);
   const [showTransfer, setShowTransfer] = React.useState(false);
   const [showReceive, setShowReceive] = React.useState(false);
   const [payee, setPayee] = React.useState('');
   const [amount, setAmount] = React.useState('');
+  const [receiveAmount, setReceiveAmount] = React.useState('');
+  const [receiveSource, setReceiveSource] = React.useState('');
   const [status, setStatus] = React.useState('');
+  const [receiveStatus, setReceiveStatus] = React.useState('');
 
   const handleEmergencyTransfer = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,6 +37,8 @@ export function EmergencyWallet({ account, onDeactivate }: EmergencyWalletProps)
         description: 'Emergency Transfer',
         fromAccountId: account.id
       });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
       setStatus('success');
       setPayee('');
       setAmount('');
@@ -38,6 +47,27 @@ export function EmergencyWallet({ account, onDeactivate }: EmergencyWalletProps)
     } catch (error) {
       setStatus('error');
       setTimeout(() => setStatus(''), 2000);
+    }
+  };
+
+  const handleSimulateReceive = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setReceiveStatus('processing');
+    try {
+      await api.simulateInbound({
+        toAccountId: account.id,
+        amount: Number(receiveAmount),
+        sourceName: receiveSource || 'External Transfer'
+      });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      setReceiveStatus('success');
+      setReceiveAmount('');
+      setReceiveSource('');
+      setTimeout(() => setReceiveStatus(''), 2000);
+    } catch (error) {
+      setReceiveStatus('error');
+      setTimeout(() => setReceiveStatus(''), 2000);
     }
   };
 
@@ -97,10 +127,29 @@ export function EmergencyWallet({ account, onDeactivate }: EmergencyWalletProps)
             {showReceive && (
               <div className="p-4 bg-black/40 rounded-lg border border-white/5 animate-slide-up text-sm text-gray-300">
                 <p className="mb-3">To receive emergency funds, provide the sender with your Emergency VPA or Account Details:</p>
-                <div className="space-y-1">
+                <div className="space-y-1 mb-4">
                   <p><strong className="text-white">VPA:</strong> emergency.{account.accountNumber.slice(-4)}@vaultpay</p>
                   <p><strong className="text-white">A/c Number:</strong> {account.accountNumber}</p>
                   <p><strong className="text-white">IFSC:</strong> {account.ifsc || 'VLTP0000001'}</p>
+                </div>
+                
+                <div className="pt-4 border-t border-white/10">
+                  <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                    <Send className="h-4 w-4 rotate-180" /> Simulate Inbound Transfer
+                  </h4>
+                  <form onSubmit={handleSimulateReceive} className="space-y-3">
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">Source (e.g. My HDFC Account, John Doe)</label>
+                      <Input value={receiveSource} onChange={e => setReceiveSource(e.target.value)} placeholder="External Bank" required />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">Amount to Add</label>
+                      <Input value={receiveAmount} onChange={e => setReceiveAmount(e.target.value)} type="number" required placeholder="0.00" />
+                    </div>
+                    <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={receiveStatus === 'processing'}>
+                      {receiveStatus === 'processing' ? 'Processing...' : receiveStatus === 'success' ? 'Funds Received!' : receiveStatus === 'error' ? 'Failed' : 'Simulate Transfer'}
+                    </Button>
+                  </form>
                 </div>
               </div>
             )}
@@ -133,6 +182,32 @@ export function EmergencyWallet({ account, onDeactivate }: EmergencyWalletProps)
           </div>
         </Card>
       </div>
+
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">Recent Emergency Activity</h3>
+        <div className="space-y-4">
+          {transactions.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-4">No recent activity on this emergency wallet.</p>
+          ) : (
+            transactions.slice(0, 5).map((t: any) => (
+              <div key={t.id} className="flex justify-between items-center p-3 bg-black/20 rounded-lg border border-white/5">
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${t.type === 'CREDIT' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-white/5 text-gray-400'}`}>
+                    <ArrowRight className={`h-4 w-4 ${t.type === 'CREDIT' ? 'rotate-90' : '-rotate-45'}`} />
+                  </div>
+                  <div>
+                    <p className="text-sm text-white font-medium">{t.counterpartyName}</p>
+                    <p className="text-xs text-gray-500">{new Date(t.timestamp).toLocaleString()}</p>
+                  </div>
+                </div>
+                <div className={`text-sm font-medium ${t.type === 'CREDIT' ? 'text-emerald-400' : 'text-white'}`}>
+                  {t.type === 'CREDIT' ? '+' : '-'}{formatCurrency(t.amount)}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </Card>
     </div>
   );
 }

@@ -275,6 +275,10 @@ export const api = {
     });
     return res.data.transaction;
   },
+  simulateInbound: async (data: { toAccountId: string; amount: number; sourceName: string }): Promise<Transaction> => {
+    const res = await client.post('/transactions/simulate-inbound', data);
+    return res.data.transaction;
+  },
 
   // Compliance
   getAmlAlerts: async (): Promise<AmlAlert[]> => {
