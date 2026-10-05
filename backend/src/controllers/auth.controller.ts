@@ -27,8 +27,8 @@ export const register = async (req: Request, res: Response) => {
         userId: user.id,
         accountNumber: Math.floor(1000000000000000 + Math.random() * 9000000000000000).toString(),
         accountType: 'CHECKING',
-        currentBalance: 150000.00, // Demo starting balance
-        availBalance: 150000.00,
+        currentBalance: 0.00, // Start with 0 balance for new users
+        availBalance: 0.00,
         currency: 'INR',
         status: 'ACTIVE'
       }
