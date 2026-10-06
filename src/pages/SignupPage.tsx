@@ -29,9 +29,11 @@ export function SignupPage() {
       }
     } catch (err: any) {
       if (err?.response?.data?.details?.length > 0) {
-        setError(err.response.data.details[0].message);
+        const detail = err.response.data.details[0].message;
+        setError(typeof detail === 'string' ? detail : 'Validation failed');
       } else {
-        setError(err?.response?.data?.error || 'Registration failed');
+        const rawError = err?.response?.data?.error;
+        setError(typeof rawError === 'string' ? rawError : (rawError?.message || 'Registration failed'));
       }
     } finally {
       setIsSubmitting(false);

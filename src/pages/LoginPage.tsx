@@ -22,7 +22,9 @@ export function LoginPage() {
       await login({ email, password });
       navigate('/');
     } catch (err: any) {
-      setError(err?.response?.data?.error || 'Login failed');
+      const rawError = err?.response?.data?.error;
+      const errorMsg = typeof rawError === 'string' ? rawError : (rawError?.message || 'Login failed. Please try again.');
+      setError(errorMsg);
     } finally {
       setIsSubmitting(false);
     }
